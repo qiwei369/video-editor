@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频剪辑工坊</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 视频剪辑工坊</h1>
+        <p class="subtitle">去头去尾 · 拼接 · 换配音</p>
+
+        <div class="card">
+            <!-- 视频上传区域 -->
+            <div class="section">
+                <label class="section-title">📁 选择视频 (多选 MP4)</label>
+                <input type="file" id="videoInput" accept="video/mp4,.mp4" multiple hidden>
+                <button class="btn-outline" id="selectVideoBtn">点击选择视频文件</button>
+                <ul id="videoList" class="file-list"></ul>
+            </div>
+
+            <!-- 剪切设置 -->
+            <div class="section">
+                <label class="section-title">✂️ 剪切设置</label>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="trimStart">剪掉片头 (秒)</label>
+                        <input type="number" id="trimStart" value="0" min="0" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="trimEnd">剪掉片尾 (秒)</label>
+                        <input type="number" id="trimEnd" value="0" min="0" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 配音区域 -->
+            <div class="section">
+                <label class="section-title">🎵 配音替换</label>
+                <div class="audio-row">
+                    <input type="file" id="audioInput" accept="audio/mp3,.mp3" hidden>
+                    <button class="btn-outline" id="selectAudioBtn">上传配音 (MP3)</button>
+                    <span id="audioName" class="file-name"></span>
+                </div>
+                <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" id="enableAudioSwitch">
+                        <span class="slider"></span>
+                    </label>
+                    <span>启用配音替换 (视频长度将与音频长度一致)</span>
+                </div>
+            </div>
+
+            <!-- 处理按钮与进度条 -->
+            <button class="btn-primary" id="processBtn">开始处理</button>
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressText">正在处理中...</p>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div class="result-area" id="resultArea" style="display: none;">
+            <button class="btn-download" id="downloadBtn">⬇️ 下载处理好的视频</button>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 存储用户选择的视频文件
+        let selectedVideoFiles = [];
+
+        // DOM 元素
+        const videoInput = document.getElementById('videoInput');
+        const selectVideoBtn = document.getElementById('selectVideoBtn');
+        const videoList = document.getElementById('videoList');
+        const audioInput = document.getElementById('audioInput');
+        const selectAudioBtn = document.getElementById('selectAudioBtn');
+        const audioNameSpan = document.getElementById('audioName');
+        const enableAudioSwitch = document.getElementById('enableAudioSwitch');
+        const processBtn = document.getElementById('processBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultArea = document.getElementById('resultArea');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // 视频选择
+        selectVideoBtn.addEventListener('click', () => videoInput.click());
+        videoInput.addEventListener('change', (e) => {
+            selectedVideoFiles = Array.from(e.target.files);
+            renderVideoList();
+        });
+
+        function renderVideoList() {
+            videoList.innerHTML = '';
+            selectedVideoFiles.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${file.name}</span>`;
+                videoList.appendChild(li);
+            });
+        }
+
+        // 音频选择
+        selectAudioBtn.addEventListener('click', () => audioInput.click());
+        audioInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                audioNameSpan.textContent = file.name;
+            } else {
+                audioNameSpan.textContent = '';
+            }
+        });
+
+        // 处理按钮点击
+        processBtn.addEventListener('click', async () => {
+            if (selectedVideoFiles.length === 0) {
+                showError('请先选择至少一个视频文件');
+                return;
+            }
+
+            const enableAudio = enableAudioSwitch.checked;
+            if (enableAudio && audioInput.files.length === 0) {
+                showError('启用配音替换时，请上传 MP3 文件');
+                return;
+            }
+
+            // 隐藏之前的错误和结果
+            errorMessage.style.display = 'none';
+            resultArea.style.display = 'none';
+
+            // 显示进度条
+            progressContainer.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressText.textContent = '正在准备...';
+
+            const formData = new FormData();
+            selectedVideoFiles.forEach(file => formData.append('videos', file));
+            formData.append('trim_start', document.getElementById('trimStart').value);
+            formData.append('trim_end', document.getElementById('trimEnd').value);
+            formData.append('enable_audio', enableAudio);
+            if (enableAudio && audioInput.files[0]) {
+                formData.append('audio', audioInput.files[0]);
+            }
+
+            try {
+                // 模拟进度更新 (实际进度取决于后端处理时间)
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += Math.random() * 15;
+                    if (progress > 90) progress = 90;
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = '处理中... ' + Math.floor(progress) + '%';
+                }, 800);
+
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || '处理失败');
+                }
+
+                // 完成进度
+                progressFill.style.width = '100%';
+                progressText.textContent = '处理完成!';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 1500);
+
+                // 获取返回的视频文件并创建下载链接
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                downloadBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'edited_video.mp4';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                };
+                resultArea.style.display = 'block';
+
+            } catch (error) {
+                clearInterval(progressInterval);
+                progressContainer.style.display = 'none';
+                showError(error.message);
+            }
+        });
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
